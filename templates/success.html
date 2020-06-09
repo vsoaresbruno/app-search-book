@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block body %}
+  <h1>Success!</h1>
+  <h3>{{username}} everything is ok</h3>
+
+  <div class="form-group">
+    <a class="btn btn-primary" href="{{ url_for('index') }}">Home</a>
+    <a class="btn btn-primary">Login</a>
+  </div>
+{% endblock %}
