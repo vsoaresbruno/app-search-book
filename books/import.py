@@ -31,8 +31,6 @@ def insert_authors(reader):
     db.session.commit()
 
 def insert_books(reader):
-    f = open("../books.csv")
-    reader = csv.reader(f)
     all_authors = Author.query.all()
 
     for isbn, title, author, year in reader:
@@ -42,13 +40,14 @@ def insert_books(reader):
         print(book)
     db.session.commit()
 
-
 def main():
-    f = open("../books.csv")
-    reader = csv.reader(f)
+    with open("../books.csv") as infile:
+        reader = csv.reader(infile)
+        first_row = next(reader, None)  # skip the headers
+        data = list(reader)             # read everything else into a list of rows
 
-    insert_authors(reader)
-    insert_books(reader)
+    insert_authors(data)
+    insert_books(data)
 
 
 if __name__ == "__main__":
