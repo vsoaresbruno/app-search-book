@@ -34,3 +34,15 @@ class Author(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	name = db.Column(db.String, nullable=False)
 
+
+class Review(db.Model):
+	__tablename__ = "reviews"
+	id = db.Column(db.Integer, primary_key=True)
+	review = db.Column(db.Integer, nullable=False)
+	review_opnion = db.Column(db.String, nullable=True)
+	book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False)
+	user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+	books = db.relationship("Book", backref="review", lazy=True)
+	users = db.relationship("User", backref="review", lazy=True)
+
+

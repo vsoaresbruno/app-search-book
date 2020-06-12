@@ -13,6 +13,12 @@ db.init_app(app)
 
 app.secret_key = 'somesecretkey'
 
+def get_user_id():
+    session_id = session['logged_in']
+    user = User.query.filter_by(id=session_id).first()
+
+    return user.id
+
 @app.before_request
 def before_request():
     if 'logged_in' not in session and request.endpoint != 'login' and request.endpoint != 'signup':
@@ -86,8 +92,18 @@ def search():
 
 @app.route("/book/<int:book_id>", methods=["POST","GET"])
 def book(book_id):
+    if request.method == "POST":
+
+        review_rating = request.form.get("review")
+        review_opnion = request.form.get("review_opnion")
+        user_id = get_user_id()
+        review = Review(review=review_rating, review_opnion=review_opnion, book_id=book_id, user_id=user_id)
+
+        db.session.add(review)
+        db.session.commit()
+        return "Reviewed"
+
     query = Book.query.filter(Book.id == book_id).first()
-    print(query)
     return render_template("book_detail.html", book=query)
 
 @app.route("/reviews")
