@@ -1,7 +1,7 @@
 import os, requests, datetime
 import config
 
-from flask import g, redirect, render_template, request, session, url_for
+from flask import redirect, render_template, request, session, url_for
 from flask_session import Session
 from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import sessionmaker
@@ -20,6 +20,10 @@ def before_request():
 
 @app.route("/")
 def index():
+    session_id = session['logged_in']
+    user_id = User.query.filter_by(id=session_id).first()
+    if user_id is not None:
+        return redirect(url_for('search'))
     return render_template("index.html")
 
 @app.route("/signup", methods=["POST","GET"])
@@ -62,6 +66,12 @@ def login():
 
     return render_template("login.html")
 
+@app.route("/logout", methods=["GET"])
+def logout():
+    session.pop('logged_in', None)
+
+    return redirect(url_for('login'))
+
 @app.route("/search",methods=["POST","GET"])
 def search():
     if request.method == "POST":
@@ -70,15 +80,15 @@ def search():
         books = Book.query.join(Author)\
             .filter(or_(Book.title.ilike(search),Book.isbn.ilike(search),Author.name.ilike(search)))\
             .all()
+        return render_template("search.html", books=books)
 
-    return render_template("search.html", books=books)
+    return render_template("search.html")
 
-@app.route("/logout", methods=["GET"])
-def logout():
-    session.pop('logged_in', None)
-
-    return redirect(url_for('login'))
-
+@app.route("/book/<int:book_id>", methods=["POST","GET"])
+def book(book_id):
+    query = Book.query.filter(Book.id == book_id).first()
+    print(query)
+    return render_template("book_detail.html", book=query)
 
 @app.route("/reviews")
 def reviews():

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block body %}
+  <div class="jumbotron">
+    <h1 class="display-4">{{book.title}}</h1>
+    <p class="lead"><strong>isbn: </strong>{{book.isbn}}</p>
+    <p class="lead"><strong>author: </strong>{{book.authors.name}}</p>
+    <p class="lead"><strong>publication year: </strong>{{book.year}}</p>
+    <hr class="my-4">
+    <a class="btn btn-primary btn-lg" href="#" role="button">Rate it</a>
+  </div>
+
+  <div class="form-group">
+    <a class="btn btn-primary" href="{{ url_for('search') }}">Search</a>
+  </div>
+{% endblock %}
