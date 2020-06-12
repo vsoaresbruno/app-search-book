@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block body %}
+  <h1>Search a book</h1>
+  <form action="{{ url_for('search') }}" method="post">
+    <div class="form-group">
+        <input class="form-control" name="query" placeholder="Type title, ISBN, or author name">
+    </div>
+    <div class="form-group">
+        <button class="btn btn-primary">Search</button>
+    </div>
+  </form>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">isbn</th>
+        <th scope="col">title</th>
+        <th scope="col">author</th>
+        <th scope="col">year</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in books %}
+        <tr>
+          <th scope="row">{{ book.isbn }}</th>
+          <td>{{ book.title }}</td>
+          <td>{{ book.authors.name }}</td>
+          <td>{{ book.year }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+{% endblock %}
