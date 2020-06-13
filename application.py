@@ -1,16 +1,16 @@
 import os, requests, datetime, json
 import config
 
-from flask import redirect, render_template, request, session, url_for
+from flask import redirect, render_template, request, session, url_for, jsonify
 from flask_session import Session
 from sqlalchemy import create_engine, or_
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 from flask_sqlalchemy import SQLAlchemy
 
 from models import *
 
+engine = create_engine(os.getenv("DATABASE_URL"))
 db.init_app(app)
-
 app.secret_key = 'somesecretkey'
 
 def get_review_goodreaders(isbn):
@@ -27,6 +27,16 @@ def get_user_id():
     user = User.query.filter_by(id=session_id).first()
 
     return user.id
+
+def handle_avg_decimal(average):
+   for value in average:
+        for avg in value:
+            return str(avg)
+
+def handle__sum(total_sum):
+      for total in total_sum:
+        for value in total:
+            return value
 
 @app.before_request
 def before_request():
@@ -124,6 +134,30 @@ def book(book_id):
     average_rating = data["books"][0]["average_rating"]
 
     return render_template("book_detail.html", book=book, average_rating=average_rating)
+
+
+@app.route("/api/<string:isbn>")
+def flight_api(isbn):
+    db = scoped_session(sessionmaker(bind=engine))
+    book = Book.query.filter_by(isbn=isbn).first()
+    avg_query = db.execute("SELECT round(AVG(review),2) FROM reviews WHERE book_id = :book_id",
+                            {"book_id": book.id}).fetchall()
+
+    sum_query = db.execute("SELECT COUNT(*) FROM reviews WHERE book_id = :book_id",
+                            {"book_id": book.id}).fetchall()
+
+    total_reviews = handle__sum(sum_query)
+    average_score = handle_avg_decimal(avg_query)
+
+    if book is None:
+        return jsonify({"error": "Invalid isbn"}), 422
+    return jsonify({
+            "title": book.title,
+            "author": book.authors.name,
+            "isbn": book.isbn,
+            "review_count": total_reviews,
+            "average_score": average_score
+        })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
