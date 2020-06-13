@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block body %}
+  <div class="jumbotron">
+    <h1 class="display-4">{{message}}</h1>
+  </div>
+
+  <div class="form-group">
+    <a class="btn btn-primary" href="{{ url_for('search') }}">Search other book</a>
+  </div>
+{% endblock %}
