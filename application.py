@@ -94,17 +94,26 @@ def search():
 def book(book_id):
     if request.method == "POST":
 
-        review_rating = request.form.get("review")
-        review_opnion = request.form.get("review_opnion")
         user_id = get_user_id()
-        review = Review(review=review_rating, review_opnion=review_opnion, book_id=book_id, user_id=user_id)
+        reviewed = Review.query.filter_by(user_id=user_id, book_id=book_id).first()
 
-        db.session.add(review)
-        db.session.commit()
-        return "Reviewed"
+        if reviewed is None:
+            review_rating = request.form.get("review")
+            review_opnion = request.form.get("review_opnion")
+            review = Review(review=review_rating, review_opnion=review_opnion, book_id=book_id, user_id=user_id)
 
-    query = Book.query.filter(Book.id == book_id).first()
-    return render_template("book_detail.html", book=query)
+            db.session.add(review)
+            db.session.commit()
+
+            return "Reviewed"
+
+        return "Sorry"
+
+    book = Book.query.get(book_id)
+    if book is None:
+        return render_template("error.html", message="No such book.")
+
+    return render_template("book_detail.html", book=book)
 
 @app.route("/reviews")
 def reviews():

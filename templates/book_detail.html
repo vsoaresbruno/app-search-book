@@ -10,7 +10,7 @@
 
   <form action="{{ url_for('book', book_id=book.id) }}" method="post">
     <div class="form-group">
-      <label for="review">review</label>
+      <label for="review">Rate this book</label>
       <select name="review" id="review" class="form-control">
         <option value="1">1</option>
         <option value="2">2</option>
@@ -28,6 +28,6 @@
   </form>
 
   <div class="form-group">
-    <a class="btn btn-primary" href="{{ url_for('search') }}">Search</a>
+    <a class="btn btn-primary" href="{{ url_for('search') }}">Back</a>
   </div>
 {% endblock %}
