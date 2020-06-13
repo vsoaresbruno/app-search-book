@@ -1,4 +1,4 @@
-import os, requests, datetime
+import os, requests, datetime, json
 import config
 
 from flask import redirect, render_template, request, session, url_for
@@ -12,6 +12,15 @@ from models import *
 db.init_app(app)
 
 app.secret_key = 'somesecretkey'
+
+def get_review_goodreaders(isbn):
+    url = "https://www.goodreads.com/book/review_counts.json"
+    resp = requests.get(url, params={'isbns': isbn})
+    if resp.status_code != 200:
+        raise Exception("ERROR: API request unsuccessful.")
+    data = resp.json()
+
+    return data
 
 def get_user_id():
     session_id = session['logged_in']
@@ -93,7 +102,6 @@ def search():
 @app.route("/book/<int:book_id>", methods=["POST","GET"])
 def book(book_id):
     if request.method == "POST":
-
         user_id = get_user_id()
         reviewed = Review.query.filter_by(user_id=user_id, book_id=book_id).first()
 
@@ -106,21 +114,16 @@ def book(book_id):
             db.session.commit()
 
             return "Reviewed"
-
         return "Sorry"
 
     book = Book.query.get(book_id)
     if book is None:
         return render_template("error.html", message="No such book.")
 
-    return render_template("book_detail.html", book=book)
+    data = get_review_goodreaders(book.isbn)
+    average_rating = data["books"][0]["average_rating"]
 
-@app.route("/reviews")
-def reviews():
-    url = "https://www.goodreads.com/book/review_counts.json"
-    r = requests.get(url, params={'isbns': "1476733503"})
-
-    return r.json()
+    return render_template("book_detail.html", book=book, average_rating=average_rating)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
