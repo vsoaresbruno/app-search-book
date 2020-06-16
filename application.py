@@ -12,6 +12,7 @@ from models import *
 engine = create_engine(os.getenv("DATABASE_URL"))
 db.init_app(app)
 app.secret_key = 'somesecretkey'
+db = scoped_session(sessionmaker(bind=engine))
 
 def get_review_goodreaders(isbn):
     url = "https://www.goodreads.com/book/review_counts.json"
@@ -24,7 +25,8 @@ def get_review_goodreaders(isbn):
 
 def get_user_id():
     session_id = session['logged_in']
-    user = User.query.filter_by(id=session_id).first()
+    user = db.execute("SELECT * FROM users WHERE id = :id",
+                        {"id": session_id}).fetchone()
 
     return user.id
 
@@ -45,15 +47,14 @@ def before_request():
 
 @app.route("/")
 def index():
-    session_id = session['logged_in']
-    user_id = User.query.filter_by(id=session_id).first()
+    user_id = get_user_id()
+
     if user_id is not None:
         return redirect(url_for('search'))
     return render_template("index.html")
 
 @app.route("/signup", methods=["POST","GET"])
 def signup():
-
     if request.method == "GET":
         return render_template("signup.html")
     else:
@@ -61,14 +62,13 @@ def signup():
         email = request.form.get("email")
         password = request.form.get("password")
 
-        ## TODO -> better logic to OR
-        u_username = User.query.filter_by(username=username).first()
-        u_email = User.query.filter_by(email=email).first()
+        user = db.execute("SELECT id FROM users WHERE username = :username OR email = :email",
+                                {"username": username, "email": email}).fetchone()
 
-        if u_username is None and u_email is None:
-            signup = User(username=username, email=email, date_signed_up=datetime.datetime.now(), password=password)
-            db.session.add(signup)
-            db.session.commit()
+        if user is None:
+            db.execute("INSERT INTO users (username, email, date_signed_up, password) VALUES (:username, :email, :date_signed_up, :password)",
+                   {"username": username, "email": email, "date_signed_up": datetime.datetime.now(), "password": password})
+            db.commit()
             return render_template("success.html", username=username)
 
         return "this user is alredy in use"
@@ -81,12 +81,11 @@ def login():
         username = request.form.get("username")
         password = request.form.get("password")
 
-        ## TODO -> better logic to OR
-        u_username = User.query.filter_by(username=username).first()
-        u_password = User.query.filter_by(password=password).first()
+        user = db.execute("SELECT id FROM users WHERE username = :username AND password = :password",
+                                {"username": username, "password": password}).fetchone()
 
-        if u_username is not None and u_password is not None:
-            session['logged_in'] = u_username.id
+        if user is not None:
+            session['logged_in'] = user['id']
             return redirect(url_for('search'))
 
     return render_template("login.html")
@@ -102,9 +101,10 @@ def search():
     if request.method == "POST":
         query = request.form.get("query")
         search = "%{}%".format(query)
-        books = Book.query.join(Author)\
-            .filter(or_(Book.title.ilike(search),Book.isbn.ilike(search),Author.name.ilike(search)))\
-            .all()
+
+        books = db.execute("SELECT b.title, b.id, b.author_id, b.isbn, authors.name FROM books b INNER JOIN authors ON b.author_id=authors.id WHERE b.title ILIKE :search_title OR authors.name ILIKE :search_author OR b.isbn ILIKE :search_isbn",
+        {"search_title": search, "search_author": search, "search_isbn": search}).fetchall()
+
         return render_template("search.html", books=books)
 
     return render_template("search.html")
@@ -113,38 +113,42 @@ def search():
 def book(book_id):
     if request.method == "POST":
         user_id = get_user_id()
-        reviewed = Review.query.filter_by(user_id=user_id, book_id=book_id).first()
+        reviewed = db.execute("SELECT * FROM reviews WHERE user_id = :user_id AND book_id = :book_id",
+                                {"user_id": user_id, "book_id": book_id}).fetchone()
 
         if reviewed is None:
             review_rating = request.form.get("review")
             review_opnion = request.form.get("review_opnion")
-            review = Review(review=review_rating, review_opnion=review_opnion, book_id=book_id, user_id=user_id)
 
-            db.session.add(review)
-            db.session.commit()
+            db.execute("INSERT INTO reviews (review, review_opnion, book_id, user_id) VALUES (:review, :review_opnion, :book_id, :user_id)",
+                   {"review": review_rating, "review_opnion": review_opnion, "book_id": book_id, "user_id": user_id})
+            db.commit()
 
             return "Reviewed"
         return "Sorry"
 
-    book = Book.query.get(book_id)
+    book = db.execute("SELECT b.title, b.id, b.author_id, b.year, b.isbn, authors.name FROM books b INNER JOIN authors ON b.author_id=authors.id WHERE b.id = :id",
+                        {"id": book_id}).fetchone()
+
     if book is None:
         return render_template("error.html", message="No such book.")
 
-    data = get_review_goodreaders(book.isbn)
+    data = get_review_goodreaders(book["isbn"])
     average_rating = data["books"][0]["average_rating"]
 
     return render_template("book_detail.html", book=book, average_rating=average_rating)
 
 
 @app.route("/api/<string:isbn>")
-def flight_api(isbn):
-    db = scoped_session(sessionmaker(bind=engine))
-    book = Book.query.filter_by(isbn=isbn).first()
+def books_api(isbn):
+    book = db.execute("SELECT b.title, b.id, b.author_id, b.year, b.isbn, authors.name FROM books b INNER JOIN authors ON b.author_id=authors.id WHERE isbn = :isbn ",{"isbn": isbn}).fetchone()
+
+
     avg_query = db.execute("SELECT round(AVG(review),2) FROM reviews WHERE book_id = :book_id",
-                            {"book_id": book.id}).fetchall()
+                            {"book_id": book["id"]}).fetchall()
 
     sum_query = db.execute("SELECT COUNT(*) FROM reviews WHERE book_id = :book_id",
-                            {"book_id": book.id}).fetchall()
+                            {"book_id": book["id"]}).fetchall()
 
     total_reviews = handle__sum(sum_query)
     average_score = handle_avg_decimal(avg_query)
@@ -152,8 +156,9 @@ def flight_api(isbn):
     if book is None:
         return jsonify({"error": "Invalid isbn"}), 422
     return jsonify({
-            "title": book.title,
-            "author": book.authors.name,
+            "title": book["title"],
+            "author": book.name,
+            "year": book.year,
             "isbn": book.isbn,
             "review_count": total_reviews,
             "average_score": average_score
